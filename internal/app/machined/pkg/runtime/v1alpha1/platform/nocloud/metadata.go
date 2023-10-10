@@ -108,12 +108,13 @@ type Bonds struct {
 
 // MetadataConfig holds meta info.
 type MetadataConfig struct {
-	Hostname     string `yaml:"hostname,omitempty"`
-	InstanceID   string `yaml:"instance-id,omitempty"`
-	InstanceType string `yaml:"instance-type,omitempty"`
-	ProviderID   string `yaml:"provider-id,omitempty"`
-	Region       string `yaml:"region,omitempty"`
-	Zone         string `yaml:"zone,omitempty"`
+	Hostname      string `yaml:"hostname,omitempty"`
+	LocalHostname string `yaml:"local-hostname,omitempty"`
+	InstanceID    string `yaml:"instance-id,omitempty"`
+	InstanceType  string `yaml:"instance-type,omitempty"`
+	ProviderID    string `yaml:"provider-id,omitempty"`
+	Region        string `yaml:"region,omitempty"`
+	Zone          string `yaml:"zone,omitempty"`
 }
 
 func (n *Nocloud) configFromNetwork(ctx context.Context, metaBaseURL string, r state.State) (metaConfig []byte, networkConfig []byte, machineConfig []byte, err error) {
@@ -251,6 +252,19 @@ func (n *Nocloud) acquireConfig(ctx context.Context, r state.State) (metadataCon
 
 	if metadataConfigDl != nil {
 		_ = yaml.Unmarshal(metadataConfigDl, metadata) //nolint:errcheck
+	}
+
+	// Some providers may provide the hostname via user-config (eg Proxmox)
+	// While the user don't use it for machine config, it can still be used to obtain the hostname
+	if machineConfigDl != nil {
+		fallbackMetadata := &MetadataConfig{}
+		err = yaml.Unmarshal(machineConfigDl, fallbackMetadata) //nolint:errcheck
+		if metadata.Hostname == "" && fallbackMetadata.Hostname != "" {
+			metadata.Hostname = fallbackMetadata.Hostname
+		}
+		if metadata.LocalHostname == "" && fallbackMetadata.LocalHostname != "" {
+			metadata.LocalHostname = fallbackMetadata.LocalHostname
+		}
 	}
 
 	if hostname != "" {
